@@ -1,0 +1,5 @@
+[functions.taxpayer-auth]
+verify_jwt = false
+
+[functions.staff-management]
+verify_jwt = true
