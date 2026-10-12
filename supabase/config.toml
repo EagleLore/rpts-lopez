@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.staff-management]
 verify_jwt = true
+
+[functions.staff-directory]
+verify_jwt = false
