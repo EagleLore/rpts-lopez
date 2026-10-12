@@ -33,9 +33,9 @@ export function SignInPage() {
     setError(null);
   }
 
-  function fillStaffAccount(account: { email: string }) {
+  function fillStaffAccount(account: { email: string; password: string }) {
     setEmail(account.email);
-    setPassword('');
+    setPassword(account.password);
     setError(null);
   }
   return (
