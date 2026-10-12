@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Building2, LogIn, User as UserIcon, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { DEMO_TAXPAYER_ACCOUNTS, SYSTEM_NAME, MUNICIPALITY_NAME } from '@/lib/constants';
+import { DEMO_STAFF_ACCOUNTS, DEMO_TAXPAYER_ACCOUNTS, SYSTEM_NAME, MUNICIPALITY_NAME } from '@/lib/constants';
 
 export function SignInPage() {
   const { signInStaff, signInTaxpayer } = useAuth();
@@ -12,33 +12,6 @@ export function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [staffAccounts, setStaffAccounts] = useState<Array<{ email: string; full_name: string }>>([]);
-  const [staffAccountsStatus, setStaffAccountsStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-
-  useEffect(() => {
-    let active = true;
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-    fetch(supabaseUrl + '/functions/v1/staff-directory', {
-      headers: { apikey: anonKey, Authorization: 'Bearer ' + anonKey },
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Staff directory request failed');
-        return response.json();
-      })
-      .then((data: { accounts?: Array<{ email: string; full_name: string }> }) => {
-        if (!active) return;
-        setStaffAccounts(data.accounts ?? []);
-        setStaffAccountsStatus('ready');
-      })
-      .catch(() => {
-        if (active) setStaffAccountsStatus('unavailable');
-      });
-
-    return () => { active = false; };
-  }, []);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -60,6 +33,11 @@ export function SignInPage() {
     setError(null);
   }
 
+  function fillStaffAccount(account: { email: string }) {
+    setEmail(account.email);
+    setPassword('');
+    setError(null);
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-blue-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -157,40 +135,22 @@ export function SignInPage() {
 
           {mode === 'staff' && <div className="border-t border-gray-100 px-6 py-4">
             <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Staff Accounts
+              Demo Accounts
             </p>
-            {staffAccountsStatus === 'loading' ? (
-              <p className="text-xs text-gray-500">Loading staff accounts...</p>
-            ) : staffAccountsStatus === 'unavailable' ? (
-              <p className="text-xs leading-relaxed text-gray-600">
-                Staff accounts are temporarily unavailable. Enter your assigned email and password to sign in.
-              </p>
-            ) : staffAccounts.length === 0 ? (
-              <p className="text-xs leading-relaxed text-gray-600">No active staff accounts are available.</p>
-            ) : (
-              <>
-                <p className="mb-2 text-xs text-gray-500">Select your account, then enter your password.</p>
-                <div className="space-y-1">
-                  {staffAccounts.map((account) => (
-                    <button
-                      key={account.email}
-                      type="button"
-                      onClick={() => {
-                        setEmail(account.email);
-                        setPassword('');
-                        setError(null);
-                      }}
-                      className="flex w-full items-center justify-between gap-3 rounded px-2 py-1 text-left text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-                    >
-                      <span className="font-medium">{account.full_name}</span>
-                      <span className="truncate font-mono text-gray-400">{account.email}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            <div className="space-y-1">
+              {DEMO_STAFF_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => fillStaffAccount(account)}
+                  className="flex w-full items-center justify-between gap-3 rounded px-2 py-1 text-left text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  <span>{account.name}</span>
+                  <span className="truncate font-mono text-gray-400">{account.email}</span>
+                </button>
+              ))}
+            </div>
           </div>}
-
           {mode === 'taxpayer' && <div className="border-t border-gray-100 px-6 py-4">
             <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Demo Accounts

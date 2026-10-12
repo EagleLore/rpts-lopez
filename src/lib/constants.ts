@@ -83,3 +83,7 @@ export const DEMO_TAXPAYER_ACCOUNTS = [
   { taxpayer_id: 'TP-2026-0001', password: 'taxpayer123', name: 'Juan dela Cruz Santos' },
   { taxpayer_id: 'TP-2026-0002', password: 'taxpayer123', name: 'Lopez Trading Corporation' },
 ];
+
+export const DEMO_STAFF_ACCOUNTS = [
+  { email: 'administrator@lopez.gov.ph', name: 'Administrator' },
+];
