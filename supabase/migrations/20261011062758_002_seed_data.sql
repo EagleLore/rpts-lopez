@@ -64,8 +64,8 @@ ON CONFLICT (code) DO NOTHING;
 -- STAFF ROLES
 -- ============================================================
 INSERT INTO staff_roles (code, name, description, permissions) VALUES
-  ('admin', 'Administrator', 'Full system access including configuration and user management',
-    ARRAY['dashboard','properties','assessments','billing','collection','reconciliation','cases','reports','configuration','user_management']),
+  ('admin', 'Administrator', 'Configuration and user management only',
+    ARRAY['configuration','user_management']),
   ('assessor', 'Municipal Assessor', 'Property registry, valuation, assessment preparation and approval',
     ARRAY['dashboard','properties','assessments','reports','cases']),
   ('treasurer', 'Municipal Treasurer', 'Billing supervision, collection oversight, and treasury controls',

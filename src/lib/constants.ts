@@ -1,5 +1,5 @@
 export const STAFF_ROLES = [
-  { code: 'admin', name: 'Administrator', description: 'Full system access' },
+  { code: 'admin', name: 'Administrator', description: 'Configuration and user management only' },
   { code: 'assessor', name: 'Municipal Assessor', description: 'Property registry and assessment' },
   { code: 'treasurer', name: 'Municipal Treasurer', description: 'Billing and collection supervision' },
   { code: 'cashier', name: 'Cashier', description: 'Payment collection' },
@@ -8,7 +8,6 @@ export const STAFF_ROLES = [
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  // admin: ['dashboard', 'properties', 'assessments', 'billing', 'collection', 'reconciliation', 'cases', 'reports', 'configuration', 'user_management'],
   admin: ['configuration', 'user_management'],
   assessor: ['dashboard', 'properties', 'assessments', 'reports', 'cases'],
   treasurer: ['dashboard', 'properties', 'billing', 'collection', 'reconciliation', 'reports', 'cases'],
