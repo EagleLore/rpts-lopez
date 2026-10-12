@@ -86,10 +86,10 @@ export const DEMO_TAXPAYER_ACCOUNTS = [
 ];
 
 export const DEMO_STAFF_ACCOUNTS = [
-  { email: 'administrator@lopez.gov.ph', password: 'admin123', name: 'Administrator', role_permissions: ROLE_PERMISSIONS.admin, staff_role: 'admin' },
-  { email: 'mayor@lopez.gov.ph', password: 'mayor123', name: 'Mayor', role_permissions: ROLE_PERMISSIONS.mayor, staff_role: 'mayor' },
-  { email: 'treasurer@lopez.gov.ph', password: 'treasurer123', name: 'Municipal Treasurer', role_permissions: ROLE_PERMISSIONS.treasurer, staff_role: 'treasurer' },
-  { email: 'assessor@lopez.gov.ph', password: 'assessor123', name: 'Municipal Assessor', role_permissions: ROLE_PERMISSIONS.assessor, staff_role: 'assessor' },
-  { email: 'account@lopez.gov.ph', password: 'account123', name: 'Municipal Accountant', role_permissions: ROLE_PERMISSIONS.accountant, staff_role: 'accountant' },
-  { email: 'cashier@lopez.gov.ph', password: 'cashier123', name: 'Cashier', role_permissions: ROLE_PERMISSIONS.cashier, staff_role: 'cashier' },  
+  { email: 'administrator@lopez.gov.ph', password: 'admin123', name: 'Administrator', role_permissions: ROLE_PERMISSIONS.admin, },
+  { email: 'mayor@lopez.gov.ph', password: 'mayor123', name: 'Mayor', role_permissions: ROLE_PERMISSIONS.mayor,  },
+  { email: 'treasurer@lopez.gov.ph', password: 'treasurer123', name: 'Municipal Treasurer', role_permissions: ROLE_PERMISSIONS.treasurer,  },
+  { email: 'assessor@lopez.gov.ph', password: 'assessor123', name: 'Municipal Assessor', role_permissions: ROLE_PERMISSIONS.assessor,  },
+  { email: 'account@lopez.gov.ph', password: 'account123', name: 'Municipal Accountant', role_permissions: ROLE_PERMISSIONS.accountant, },
+  { email: 'cashier@lopez.gov.ph', password: 'cashier123', name: 'Cashier', role_permissions: ROLE_PERMISSIONS.cashier, },  
 ];
