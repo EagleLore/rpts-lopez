@@ -8,7 +8,8 @@ export const STAFF_ROLES = [
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['dashboard', 'properties', 'assessments', 'billing', 'collection', 'reconciliation', 'cases', 'reports', 'configuration', 'user_management'],
+  // admin: ['dashboard', 'properties', 'assessments', 'billing', 'collection', 'reconciliation', 'cases', 'reports', 'configuration', 'user_management'],
+  admin: ['configuration', 'user_management'],
   assessor: ['dashboard', 'properties', 'assessments', 'reports', 'cases'],
   treasurer: ['dashboard', 'properties', 'billing', 'collection', 'reconciliation', 'reports', 'cases'],
   cashier: ['dashboard', 'collection'],
