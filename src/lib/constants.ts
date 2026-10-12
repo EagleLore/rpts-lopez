@@ -79,15 +79,6 @@ export const MUNICIPALITY_NAME = 'Municipality of Lopez';
 export const PROVINCE_NAME = 'Quezon Province';
 export const SYSTEM_NAME = 'Real Property Tax System';
 
-export const DEMO_STAFF_ACCOUNTS = [
-  { email: 'admin@lopez.gov.ph', password: 'Admin123!', role: 'Administrator' },
-  { email: 'assessor@lopez.gov.ph', password: 'Assessor123!', role: 'Municipal Assessor' },
-  { email: 'treasurer@lopez.gov.ph', password: 'Treasurer123!', role: 'Municipal Treasurer' },
-  { email: 'cashier@lopez.gov.ph', password: 'Cashier123!', role: 'Cashier' },
-  { email: 'accountant@lopez.gov.ph', password: 'Accountant123!', role: 'Municipal Accountant' },
-  { email: 'mayor@lopez.gov.ph', password: 'Mayor123!', role: 'Mayor / Executive' },
-];
-
 export const DEMO_TAXPAYER_ACCOUNTS = [
   { taxpayer_id: 'TP-2026-0001', password: 'taxpayer123', name: 'Juan dela Cruz Santos' },
   { taxpayer_id: 'TP-2026-0002', password: 'taxpayer123', name: 'Lopez Trading Corporation' },

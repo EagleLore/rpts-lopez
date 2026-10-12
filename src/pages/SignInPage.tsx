@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Building2, LogIn, User as UserIcon, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { DEMO_STAFF_ACCOUNTS, DEMO_TAXPAYER_ACCOUNTS, SYSTEM_NAME, MUNICIPALITY_NAME } from '@/lib/constants';
+import { DEMO_TAXPAYER_ACCOUNTS, SYSTEM_NAME, MUNICIPALITY_NAME } from '@/lib/constants';
 
 export function SignInPage() {
   const { signInStaff, signInTaxpayer } = useAuth();
@@ -28,8 +28,7 @@ export function SignInPage() {
     setLoading(false);
   }
 
-  function fillDemo(account: { email?: string; taxpayer_id?: string; password: string }) {
-    if (account.email) setEmail(account.email);
+  function fillDemo(account: { taxpayer_id: string; password: string }) {
     if (account.taxpayer_id) setTaxpayerId(account.taxpayer_id);
     setPassword(account.password);
     setError(null);
@@ -130,25 +129,11 @@ export function SignInPage() {
             </button>
           </form>
 
-          <div className="border-t border-gray-100 px-6 py-4">
+          {mode === 'taxpayer' && <div className="border-t border-gray-100 px-6 py-4">
             <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Demo Accounts
             </p>
-            {mode === 'staff' ? (
-              <div className="space-y-1">
-                {DEMO_STAFF_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    onClick={() => fillDemo(acc)}
-                    className="flex w-full items-center justify-between rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    <span>{acc.role}</span>
-                    <span className="font-mono text-gray-400">{acc.email}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-1">
+            <div className="space-y-1">
                 {DEMO_TAXPAYER_ACCOUNTS.map((acc) => (
                   <button
                     key={acc.taxpayer_id}
@@ -159,9 +144,8 @@ export function SignInPage() {
                     <span className="font-mono text-gray-400">{acc.taxpayer_id}</span>
                   </button>
                 ))}
-              </div>
-            )}
-          </div>
+            </div>
+          </div>}
         </div>
 
         <p className="mt-4 text-center text-xs text-blue-200">
