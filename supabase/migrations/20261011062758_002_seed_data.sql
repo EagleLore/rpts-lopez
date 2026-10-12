@@ -272,10 +272,10 @@ BEGIN
   VALUES
     ('TP-2026-0001', 'Juan dela Cruz Santos', 'juan.santos@email.com', '0917-123-4567',
      'Brgy. Poblacion, Lopez, Quezon',
-     crypt('taxpayer123', gen_salt('bf'))),
+     extensions.crypt('taxpayer123', extensions.gen_salt('bf'))),
     ('TP-2026-0002', 'Lopez Trading Corporation', 'info@lopeztrading.com', '042-123-4567',
      'Brgy. Magallanes, Lopez, Quezon',
-     crypt('taxpayer123', gen_salt('bf')))
+     extensions.crypt('taxpayer123', extensions.gen_salt('bf')))
   ON CONFLICT DO NOTHING;
 END $$;
 
