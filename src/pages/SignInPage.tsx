@@ -3,6 +3,7 @@ import {
   AlertCircle, ArrowLeft, ArrowRight, Building2, CheckCircle2, Eye, EyeOff,
   KeyRound, Landmark, LogIn, Mail, ShieldCheck,
 } from 'lucide-react';
+import lopezSeal from '@/assets/lopez-seal.png';
 import { useAuth } from '@/contexts/AuthContext';
 import { DEMO_STAFF_ACCOUNTS, MUNICIPALITY_NAME, SYSTEM_NAME } from '@/lib/constants';
 
@@ -109,8 +110,8 @@ export function SignInPage() {
       <section className="citizen-form-panel">
         <div className="citizen-form-inner">
           <div className="mb-10 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-800 text-white shadow-sm">
-              <Landmark className="h-7 w-7" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-blue-100 bg-white shadow-sm">
+              <img src={lopezSeal} alt="Municipality of Lopez, Quezon seal" className="h-full w-full object-contain" />
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-800">Municipality of Lopez</p>
@@ -177,14 +178,12 @@ export function SignInPage() {
       </section>
 
       <aside className="citizen-hero hidden lg:flex" aria-label="Lopez Citizens Portal welcome">
-        <div className="citizen-sun" /><div className="citizen-cloud citizen-cloud-one" /><div className="citizen-cloud citizen-cloud-two" />
         <div className="citizen-hero-copy">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/25 px-4 py-2 text-sm font-medium text-blue-950 backdrop-blur-sm"><ShieldCheck className="h-4 w-4" /> Your municipal services, in one place</div>
           <h2 className="max-w-2xl text-5xl font-semibold leading-tight tracking-tight text-blue-950 xl:text-6xl">Property tax services made simpler.</h2>
           <p className="mt-5 max-w-xl text-lg leading-8 text-blue-900/75">View your registered properties, check tax dues, and keep track of payments through the {MUNICIPALITY_NAME} Citizens Portal.</p>
           <div className="mt-9 flex flex-wrap gap-3 text-sm font-medium text-blue-950"><span className="rounded-full border border-blue-900/15 bg-white/40 px-4 py-2">Secure account access</span><span className="rounded-full border border-blue-900/15 bg-white/40 px-4 py-2">Property and tax records</span><span className="rounded-full border border-blue-900/15 bg-white/40 px-4 py-2">Payment history</span></div>
         </div>
-        <div className="citizen-town" aria-hidden="true"><svg viewBox="0 0 1000 210" preserveAspectRatio="none"><path d="M0 150h55v-52h42v52h26V74h45v76h30V110h52v40h30V46h48v104h36v-62h52v62h30V83h38v67h35V31h58v119h30V95h42v55h33V58h53v92h33v-43h49v43h35V72h40v78h35V23h56v127h33V90h50v60h41v-46h55v46h30v-67h53v67h19v60H0z" fill="#174a7e"/><path d="M0 177h1000v33H0z" fill="#f5c65a"/><path d="M0 186h1000v24H0z" fill="#d96749"/><path d="M0 195h1000v15H0z" fill="#f4efe3"/><g fill="#e7f5ff" opacity=".9"><path d="M68 110h10v10H68zm28-22h10v10H96zm54-2h10v10h-10zm54 50h10v10h-10zm88-51h10v10h-10zm43 21h10v10h-10zm72-28h10v10h-10zm69-25h10v10h-10zm70 62h10v10h-10zm70-20h10v10h-10zm58-19h10v10h-10zm73 24h10v10h-10zm68-25h10v10h-10zm70 45h10v10h-10zm61-25h10v10h-10zm63 29h10v10h-10zm55-14h10v10h-10z"/></g><path d="M455 177v-38l45-34 45 34v38h-18v-31h-54v31z" fill="#f7f0dc"/><path d="M486 177v-22h28v22" fill="#cf5b42"/><path d="M495 129h10v10h-10" fill="#174a7e"/></svg></div>
         <div className="citizen-hero-footer"><span className="flex items-center gap-2"><Landmark className="h-4 w-4" /> {MUNICIPALITY_NAME}</span><span>Quezon Province · Philippines</span></div>
       </aside>
     </main>
