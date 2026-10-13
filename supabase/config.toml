@@ -4,3 +4,6 @@ verify_jwt = false
 [functions.staff-management]
 verify_jwt = true
 
+
+[functions.citizen-account]
+verify_jwt = true

@@ -16,7 +16,7 @@ import { TaxpayerPortal } from '@/pages/TaxpayerPortal';
 import { NAV_ITEMS } from '@/lib/constants';
 
 function AppContent() {
-  const { staffUser, taxpayer, loading, hasPermission } = useAuth();
+  const { staffUser, taxpayer, loading, hasPermission, isPasswordRecovery } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
 
   if (loading) {
@@ -25,6 +25,34 @@ function AppContent() {
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-700" />
       </div>
     );
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
+  }
+
+  if (isPasswordRecovery) {
+    return <SignInPage />;
   }
 
   if (taxpayer && !staffUser) {

@@ -75,7 +75,7 @@ export function UserManagementPage() {
     setTaxpayerError(null);
     const { data, error: queryError } = await supabase
       .from('taxpayer_users')
-      .select('*')
+      .select('id, taxpayer_id, email, full_name, phone, address, is_active, auth_id, created_at')
       .order('created_at', { ascending: false });
 
     if (queryError) {
