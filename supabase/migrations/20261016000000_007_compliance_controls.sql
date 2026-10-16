@@ -795,3 +795,6 @@ $$;
 
 REVOKE ALL ON FUNCTION public.post_rpt_payment(uuid[], text, text, text, bigint, uuid, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.post_rpt_payment(uuid[], text, text, text, bigint, uuid, text) TO authenticated;
+
+-- Make newly created RPCs immediately visible through the Supabase Data API.
+NOTIFY pgrst, 'reload schema';

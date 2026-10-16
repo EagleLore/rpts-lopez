@@ -115,3 +115,8 @@ The portal now displays access-refresh and query failures rather than silently s
 ### Citizens portal TypeScript correction — 16 October 2026
 
 Fixed the `PropertiesView` component’s missing `taxpayer` prop. The property detail card displays the account holder’s name, so `TaxpayerPortal` now passes its authenticated taxpayer profile into the child component with an explicit nullable type.
+
+
+### Cash-session RPC schema-cache note — 16 October 2026
+
+The compliance migration defines and grants `public.open_rpt_cash_session()` with no arguments, matching the Collection page RPC call. It now ends with `NOTIFY pgrst, 'reload schema';` so the API refreshes its function cache after migration. If the app reports that the function cannot be found, first confirm the migration was applied to the same Supabase project used by the frontend; if the function exists but remains undiscoverable, reload the PostgREST schema cache.
