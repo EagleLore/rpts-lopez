@@ -36,15 +36,32 @@ Deno.serve(async (req: Request) => {
     if (!user.email_confirmed_at) return json({ error: "Confirm your email before linking your taxpayer record" }, 403);
 
     const body = await req.json();
+    const admin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    if (body.action === "refresh") {
+      const { data: taxpayer, error: taxpayerError } = await admin
+        .from("taxpayer_users")
+        .select("id")
+        .eq("auth_id", user.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (taxpayerError) return json({ error: "Unable to verify taxpayer account" }, 500);
+      if (!taxpayer) return json({ error: "No active taxpayer profile is linked to this account" }, 404);
+      const { data: linkedCount, error: accessError } = await admin.rpc("link_taxpayer_properties", {
+        target_taxpayer_user_id: taxpayer.id,
+      });
+      if (accessError) return json({ error: "Unable to refresh linked property access" }, 500);
+      return json({ refreshed: true, linked: linkedCount ?? 0 });
+    }
+
     if (body.action !== "link" || typeof body.taxpayer_id !== "string") {
       return json({ error: "Invalid request" }, 400);
     }
     const taxpayerId = body.taxpayer_id.trim();
     if (!taxpayerId || taxpayerId.length > 80) return json({ error: "Invalid taxpayer ID" }, 400);
 
-    const admin = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
     const { data: taxpayer, error: taxpayerError } = await admin
       .from("taxpayer_users")
       .select("id, taxpayer_id, email, full_name, phone, address, is_active, auth_id")

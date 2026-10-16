@@ -28,12 +28,13 @@ interface PaymentWithDetails extends Omit<Payment, 'receipt' | 'allocations'> {
 }
 
 export function TaxpayerPortal() {
-  const { taxpayer, signOut } = useAuth();
+  const { taxpayer, signOut, authNotice } = useAuth();
   const [view, setView] = useState<PortalView>('overview');
   const [properties, setProperties] = useState<Property[]>([]);
   const [charges, setCharges] = useState<TaxChargeWithDetails[]>([]);
   const [payments, setPayments] = useState<PaymentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedPropertyCharges, setSelectedPropertyCharges] = useState<TaxChargeWithDetails[] | null>(null);
 
   useEffect(() => {
@@ -72,9 +73,16 @@ export function TaxpayerPortal() {
           .limit(20),
       ]);
 
-      if (propsRes.data) setProperties(propsRes.data as unknown as Property[]);
-      if (chargesRes.data) setCharges(chargesRes.data as unknown as TaxChargeWithDetails[]);
-      if (paymentsRes.data) setPayments(paymentsRes.data as unknown as PaymentWithDetails[]);
+      const queryError = propsRes.error || chargesRes.error || paymentsRes.error;
+      if (queryError) {
+        console.error('Failed to load taxpayer portal data:', queryError);
+        setLoadError('We could not load your taxpayer records. Please refresh the page. If the issue continues, contact the Municipal Assessor and provide your taxpayer ID.');
+      } else {
+        setLoadError(null);
+        setProperties((propsRes.data ?? []) as unknown as Property[]);
+        setCharges((chargesRes.data ?? []) as unknown as TaxChargeWithDetails[]);
+        setPayments((paymentsRes.data ?? []) as unknown as PaymentWithDetails[]);
+      }
       setLoading(false);
     }
     loadData();
@@ -135,6 +143,27 @@ export function TaxpayerPortal() {
         </div>
       </header>
 
+      <div className="mx-auto max-w-6xl px-4 pt-5">
+        {authNotice && (
+          <div role="alert" className="mb-3 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <Info className="mt-0.5 h-5 w-5 shrink-0" />
+            <p>{authNotice}</p>
+          </div>
+        )}
+        {loadError && (
+          <div role="alert" className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+            <p>{loadError}</p>
+          </div>
+        )}
+        {!loadError && !authNotice && properties.length === 0 && (
+          <div role="status" className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <Info className="mt-0.5 h-5 w-5 shrink-0" />
+            <p>No properties are currently linked to taxpayer account <strong>{taxpayer?.taxpayer_id}</strong>. If PIN LOP-006-002-002 should belong to this account, contact the Municipal Assessor to verify the property’s declared-owner record and recorded email.</p>
+          </div>
+        )}
+      </div>
+
       <div className="mx-auto max-w-6xl px-4 py-6 flex flex-col lg:flex-row gap-6">
         {/* Sidebar nav */}
         <nav className="lg:w-56 flex-shrink-0">
@@ -177,8 +206,10 @@ export function TaxpayerPortal() {
 
           {view === 'properties' && (
             <PropertiesView
+              taxpayer={taxpayer}
               properties={properties}
               charges={charges}
+              onRefresh={() => window.location.reload()}
               onViewCharges={(propCharges) => {
                 setSelectedPropertyCharges(propCharges);
                 setView('tax_dues');
@@ -344,10 +375,12 @@ function OverviewView({
 }
 
 function PropertiesView({
-  properties, charges, onViewCharges,
+  taxpayer, properties, charges, onRefresh, onViewCharges,
 }: {
+  taxpayer: TaxpayerUser | null;
   properties: Property[];
   charges: TaxChargeWithDetails[];
+  onRefresh: () => void;
   onViewCharges: (charges: TaxChargeWithDetails[]) => void;
 }) {
   if (properties.length === 0) {
@@ -356,7 +389,16 @@ function PropertiesView({
         <EmptyState
           icon={<Building2 className="h-8 w-8" />}
           title="No properties registered"
-          description="No properties are currently linked to your taxpayer account. Please contact the Municipal Assessor's office if you believe this is an error."
+          description="No properties are currently linked to your taxpayer account. Refresh after a property has been linked. If it still does not appear, contact the Municipal Assessor's office."
+          action={(
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800"
+            >
+              Refresh property list
+            </button>
+          )}
         />
       </Card>
     );

@@ -43,7 +43,7 @@ export interface Jurisdiction {
   id: string;
   code: string;
   name: string;
-  type: 'barangay' | 'municipality' | 'province';
+  type: 'barangay' | 'municipality' | 'province' | 'city';
   parent_id: string | null;
 }
 
@@ -280,6 +280,7 @@ export interface AssessmentLevel {
 
 export interface TaxRate {
   id: string;
+  jurisdiction_id: string | null;
   levy_type: string;
   rate_percent: number;
   effective_date: string;

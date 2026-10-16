@@ -68,6 +68,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (error || !data) return null;
+
+    // Property ownership can be linked or corrected after the citizen account is created.
+    // Refresh its server-side access map at sign-in so the portal does not rely on a stale snapshot.
+    if (user.email_confirmed_at) {
+      setAuthNotice(null);
+      const { error: refreshError } = await supabase.functions.invoke('citizen-account', {
+        body: { action: 'refresh' },
+      });
+      if (refreshError) {
+        setAuthNotice('Your taxpayer account is linked, but property access could not be refreshed. Deploy the latest citizen-account function or contact the Municipal Assessor.');
+      }
+    }
     return data as TaxpayerUser;
   }
 
@@ -80,9 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStaffOffice(null);
     const citizen = await loadTaxpayerUser(user);
     setTaxpayer(citizen);
-    setAuthNotice(!citizen && user.email_confirmed_at
-      ? 'Your email is confirmed, but we could not link this account to an active taxpayer record. Check that the taxpayer ID and email match the municipal record, or contact the Municipal Assessor.'
-      : null);
+    if (!citizen) {
+      setAuthNotice(user.email_confirmed_at
+        ? 'Your email is confirmed, but we could not link this account to an active taxpayer record. Check that the taxpayer ID and email match the municipal record, or contact the Municipal Assessor.'
+        : null);
+    }
   }
 
   useEffect(() => {

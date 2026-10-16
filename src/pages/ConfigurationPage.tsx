@@ -12,6 +12,7 @@ import type {
   DueDate,
   LevyType,
   ComplianceCalendarEntry,
+  Jurisdiction,
 } from '@/lib/types';
 
 // ─── Tab configuration ────────────────────────────────────────────────────────
@@ -86,9 +87,11 @@ const COMPLIANCE_STATUS_OPTIONS = [
 // ─── Form state types ──────────────────────────────────────────────────────────
 
 interface TaxRateForm {
+  jurisdiction_id: string;
   levy_type: string;
   rate_percent: string;
   effective_date: string;
+  end_date: string;
   ordinance_reference: string;
   legal_source: string;
 }
@@ -137,9 +140,11 @@ interface ComplianceCalendarForm {
 }
 
 const EMPTY_TAX_RATE_FORM: TaxRateForm = {
+  jurisdiction_id: '',
   levy_type: '',
   rate_percent: '',
   effective_date: todayISO(),
+  end_date: '',
   ordinance_reference: '',
   legal_source: '',
 };
@@ -194,6 +199,7 @@ export function ConfigurationPage() {
 
   // Data state per tab
   const [taxRates, setTaxRates] = useState<TaxRate[]>([]);
+  const [rateJurisdictions, setRateJurisdictions] = useState<Jurisdiction[]>([]);
   const [assessmentLevels, setAssessmentLevels] = useState<AssessmentLevel[]>([]);
   const [valuationSchedules, setValuationSchedules] = useState<ValuationSchedule[]>([]);
   const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
@@ -249,10 +255,11 @@ export function ConfigurationPage() {
   const loadTaxRates = useCallback(async () => {
     setTabLoading((p) => ({ ...p, tax_rates: true }));
     setTabError((p) => ({ ...p, tax_rates: null }));
-    const { data, error: err } = await supabase
-      .from('tax_rates')
-      .select('*')
-      .order('effective_date', { ascending: false });
+    const [{ data, error: err }, { data: jurisdictions }] = await Promise.all([
+      supabase.from('tax_rates').select('*').order('effective_date', { ascending: false }),
+      supabase.from('jurisdictions').select('*').in('type', ['province', 'city', 'municipality']).order('name'),
+    ]);
+    setRateJurisdictions((jurisdictions ?? []) as Jurisdiction[]);
     setTabLoading((p) => ({ ...p, tax_rates: false }));
     if (err) {
       setTabError((p) => ({ ...p, tax_rates: err.message }));
@@ -388,15 +395,21 @@ export function ConfigurationPage() {
   async function handleCreateTaxRate() {
     setModalError(null);
     if (!taxRateForm.levy_type) { setModalError('Please select a levy type.'); return; }
+    if (!taxRateForm.jurisdiction_id) { setModalError('Please select the government jurisdiction authorized to levy this tax.'); return; }
     const rate = parseFloat(taxRateForm.rate_percent);
     if (isNaN(rate) || rate <= 0) { setModalError('Please enter a valid rate percentage.'); return; }
     if (!taxRateForm.effective_date) { setModalError('Please enter an effective date.'); return; }
+    if (taxRateForm.end_date && taxRateForm.end_date < taxRateForm.effective_date) { setModalError('The end date cannot be earlier than the effective date.'); return; }
+    if (!taxRateForm.ordinance_reference.trim() || taxRateForm.ordinance_reference.toLowerCase().includes('pending')) { setModalError('Enter the enacted ordinance reference; pending configuration cannot be activated.'); return; }
+    if (!taxRateForm.legal_source.trim() || taxRateForm.legal_source.toLowerCase().includes('pending')) { setModalError('Enter a verified legal source; pending configuration cannot be activated.'); return; }
 
     setSaving(true);
     const { error: insErr } = await supabase.from('tax_rates').insert({
+      jurisdiction_id: taxRateForm.jurisdiction_id,
       levy_type: taxRateForm.levy_type,
       rate_percent: rate,
       effective_date: taxRateForm.effective_date,
+      end_date: taxRateForm.end_date || null,
       ordinance_reference: taxRateForm.ordinance_reference.trim() || null,
       legal_source: taxRateForm.legal_source.trim() || null,
       status: 'active',
@@ -415,6 +428,7 @@ export function ConfigurationPage() {
     const level = parseFloat(assessmentLevelForm.level_percent);
     if (isNaN(level) || level <= 0) { setModalError('Please enter a valid assessment level percentage.'); return; }
     if (!assessmentLevelForm.effective_date) { setModalError('Please enter an effective date.'); return; }
+    if (!assessmentLevelForm.legal_source.trim() || assessmentLevelForm.legal_source.toLowerCase().includes('pending')) { setModalError('Enter a verified ordinance or legal source before activating this level.'); return; }
 
     setSaving(true);
     const { error: insErr } = await supabase.from('assessment_levels').insert({
@@ -436,6 +450,9 @@ export function ConfigurationPage() {
     setModalError(null);
     if (!valuationForm.name.trim()) { setModalError('Please enter a schedule name.'); return; }
     if (!valuationForm.version.trim()) { setModalError('Please enter a version.'); return; }
+    if (['certified', 'in_force'].includes(valuationForm.status) && (!valuationForm.publication_date || !valuationForm.effectivity_date || !valuationForm.certification_reference.trim() || valuationForm.certification_reference.toLowerCase().includes('pending') || !valuationForm.legal_source.trim())) {
+      setModalError('Certified or in-force schedules require publication and effectivity dates, a certification reference, and a legal source.'); return;
+    }
 
     setSaving(true);
     const { error: insErr } = await supabase.from('valuation_schedules').insert({
@@ -459,8 +476,10 @@ export function ConfigurationPage() {
     setModalError(null);
     if (!discountForm.name.trim()) { setModalError('Please enter a rule name.'); return; }
     const maxPct = parseFloat(discountForm.max_percent);
-    if (isNaN(maxPct) || maxPct <= 0) { setModalError('Please enter a valid maximum discount percentage.'); return; }
+    if (isNaN(maxPct) || maxPct <= 0 || maxPct > 20) { setModalError('Discount must be greater than zero and no more than 20%.'); return; }
     if (!discountForm.valid_from) { setModalError('Please enter a valid-from date.'); return; }
+    if (!discountForm.ordinance_reference.trim() || discountForm.ordinance_reference.toLowerCase().includes('pending')) { setModalError('An enacted ordinance reference is required to activate a discount rule.'); return; }
+    if (discountForm.eligibility_criteria.trim().toLowerCase() !== 'advance_full_year') { setModalError('For safety, automatic discounts currently support only the advance_full_year eligibility code.'); return; }
 
     setSaving(true);
     const { error: insErr } = await supabase.from('discount_rules').insert({
@@ -620,11 +639,10 @@ export function ConfigurationPage() {
             Pending Certification — Illustrative Values
           </h3>
           <p className="mt-1 text-sm text-yellow-800">
-            All tax rates, assessment levels, and valuation schedules displayed in this module are
-            pre-loaded with illustrative values pending formal certification by the{' '}
-            <strong>Quezon Province</strong>. These values must not be used for official assessments
-            until certified and enacted through the appropriate Sanggunian ordinance. Contact the
-            Provincial Assessor's Office for the certified schedule.
+            Seeded rates, assessment levels, and the valuation schedule are illustrative. The system disables
+            those pending values for billing and assessment approval. Enter the applicable certified
+            schedule, effective assessment levels, and enacted levy rates with their official references
+            before processing official records.
           </p>
         </div>
       </div>
@@ -666,7 +684,7 @@ export function ConfigurationPage() {
             count={taxRates.length}
             onAdd={() => { setTaxRateForm(EMPTY_TAX_RATE_FORM); setModalError(null); setShowTaxRateModal(true); }}
             addLabel="Add Tax Rate"
-            headers={['Levy Type', 'Rate', 'Effective Date', 'Ordinance Ref.', 'Legal Source', 'Status']}
+            headers={['Levy Type', 'Authority', 'Rate', 'Effective Date', 'End Date', 'Ordinance Ref.', 'Legal Source', 'Status']}
             loading={tabLoading.tax_rates}
             isEmpty={taxRates.length === 0}
             emptyIcon={<Percent className="h-8 w-8" />}
@@ -676,8 +694,10 @@ export function ConfigurationPage() {
             {taxRates.map((r) => (
               <tr key={r.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-gray-900">{levyLabel(r.levy_type)}</td>
+                <td className="px-4 py-3 text-gray-700">{rateJurisdictions.find((j) => j.id === r.jurisdiction_id)?.name ?? 'Unassigned'}</td>
                 <td className="px-4 py-3 text-gray-700">{formatPercent(r.rate_percent)}</td>
                 <td className="px-4 py-3 text-gray-700">{formatDate(r.effective_date)}</td>
+                <td className="px-4 py-3 text-gray-700">{formatDate(r.end_date)}</td>
                 <td className="px-4 py-3 text-gray-700">{r.ordinance_reference || '—'}</td>
                 <td className="px-4 py-3 text-gray-500">{r.legal_source || '—'}</td>
                 <td className="px-4 py-3 text-right"><Badge status={r.status} /></td>
@@ -935,6 +955,17 @@ export function ConfigurationPage() {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select
+            label="Levying Authority"
+            value={taxRateForm.jurisdiction_id}
+            onChange={(v) => setTaxRateForm((p) => ({ ...p, jurisdiction_id: v }))}
+            options={rateJurisdictions
+              .filter((j) => j.type === 'province' || j.type === 'city' || (j.type === 'municipality' && (j as Jurisdiction & { is_metro_manila?: boolean }).is_metro_manila))
+              .map((j) => ({ value: j.id, label: `${j.name} · ${capitalize(j.type)}` }))}
+            placeholder="Select the authorized levying authority"
+            required
+            className="sm:col-span-2"
+          />
+          <Select
             label="Levy Type"
             value={taxRateForm.levy_type}
             onChange={(v) => setTaxRateForm((p) => ({ ...p, levy_type: v }))}
@@ -959,10 +990,17 @@ export function ConfigurationPage() {
             required
           />
           <Input
+            label="End Date (optional)"
+            type="date"
+            value={taxRateForm.end_date}
+            onChange={(v) => setTaxRateForm((p) => ({ ...p, end_date: v }))}
+          />
+          <Input
             label="Ordinance Reference"
             value={taxRateForm.ordinance_reference}
             onChange={(v) => setTaxRateForm((p) => ({ ...p, ordinance_reference: v }))}
             placeholder="e.g. Ord. No. 2024-001"
+            required
             className="sm:col-span-2"
           />
           <Input
@@ -970,6 +1008,7 @@ export function ConfigurationPage() {
             value={taxRateForm.legal_source}
             onChange={(v) => setTaxRateForm((p) => ({ ...p, legal_source: v }))}
             placeholder="e.g. R.A. 7160, Sec. 233"
+            required
             className="sm:col-span-2"
           />
         </div>
@@ -1032,7 +1071,8 @@ export function ConfigurationPage() {
             label="Legal Source"
             value={assessmentLevelForm.legal_source}
             onChange={(v) => setAssessmentLevelForm((p) => ({ ...p, legal_source: v }))}
-            placeholder="e.g. R.A. 7160, Sec. 218"
+            placeholder="e.g. local ordinance and R.A. 7160, Sec. 218"
+            required
             className="sm:col-span-2"
           />
         </div>
@@ -1182,10 +1222,14 @@ export function ConfigurationPage() {
             label="Eligibility Criteria"
             value={discountForm.eligibility_criteria}
             onChange={(v) => setDiscountForm((p) => ({ ...p, eligibility_criteria: v }))}
-            placeholder="Describe who qualifies for this discount..."
+            placeholder="Enter advance_full_year"
             rows={2}
+            required
             className="sm:col-span-2"
           />
+          <p className="sm:col-span-2 -mt-2 text-xs text-gray-500">
+            Use the exact eligibility code <code className="rounded bg-gray-100 px-1">advance_full_year</code>. Automatic application is limited to all four basic and SEF quarters for one unit, paid before the first-quarter due date. The local ordinance must authorize this rule.
+          </p>
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" onClick={() => setShowDiscountModal(false)}>Cancel</Button>

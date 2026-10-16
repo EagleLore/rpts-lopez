@@ -118,52 +118,6 @@ export function computeTax(
   return Math.round((assessedValue * ratePercent) / 100);
 }
 
-export function computeRevenueShares(
-  amount: number,
-  levyType: string
-): {
-  share_province: number;
-  share_municipality: number;
-  share_barangay: number;
-  share_sef_province: number;
-  share_sef_municipality: number;
-} {
-  if (levyType === 'basic' || levyType === 'idle_land') {
-    return {
-      share_province: Math.round(amount * 0.35),
-      share_municipality: Math.round(amount * 0.40),
-      share_barangay: Math.round(amount * 0.25),
-      share_sef_province: 0,
-      share_sef_municipality: 0,
-    };
-  }
-  if (levyType === 'sef') {
-    return {
-      share_province: 0,
-      share_municipality: 0,
-      share_barangay: 0,
-      share_sef_province: Math.round(amount * 0.50),
-      share_sef_municipality: Math.round(amount * 0.50),
-    };
-  }
-  return {
-    share_province: 0,
-    share_municipality: 0,
-    share_barangay: 0,
-    share_sef_province: 0,
-    share_sef_municipality: 0,
-  };
-}
-
-export function generateReceiptNumber(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const random = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-  return `RPT-${year}${month}${day}-${random}`;
-}
-
 export function generateCaseNumber(caseType: string): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -173,13 +127,4 @@ export function generateCaseNumber(caseType: string): string {
     : 'ENF';
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
   return `${prefix}-${year}-${random}`;
-}
-
-export function generateSessionNumber(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `CS-${year}${month}${day}-${random}`;
 }

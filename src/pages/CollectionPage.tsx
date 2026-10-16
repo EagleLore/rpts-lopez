@@ -8,7 +8,7 @@ import { Card, Badge, Button, Modal, Input, Select, TextArea, EmptyState, PageHe
 import { useAuth } from '@/contexts/AuthContext';
 import {
   formatCurrency, formatDateTime, formatDate, computeInterest,
-  computeRevenueShares, generateReceiptNumber, generateSessionNumber, capitalize,
+  capitalize,
 } from '@/lib/utils';
 import { PAYMENT_METHODS } from '@/lib/constants';
 import type {
@@ -108,6 +108,7 @@ export function CollectionPage() {
     receiptNumber: string;
     changeDue: number;
     totalAllocated: number;
+    discountAmount: number;
   } | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -235,7 +236,8 @@ export function CollectionPage() {
   const canSubmit =
     selectedIds.size > 0 &&
     payerName.trim().length > 0 &&
-    tenderCentavos >= selectedTotal &&
+    tenderCentavos > 0 &&
+    !!cashSession &&
     !submitting;
 
   /* ──────────────────────────────────────────────────────────────────────── */
@@ -275,153 +277,40 @@ export function CollectionPage() {
       setSubmitError('Select at least one charge to pay.');
       return;
     }
-    if (tenderCentavos < selectedTotal) {
-      setSubmitError('Tender amount is less than the total due.');
+    if (!cashSession) {
+      setSubmitError('Open a cash session before posting a payment.');
+      return;
+    }
+    if (tenderCentavos <= 0) {
+      setSubmitError('Enter a positive tender amount. The database will confirm the amount due.');
       return;
     }
 
     setSubmitting(true);
-
     try {
-      const selectedCharges = charges
-        .filter((c) => selectedIds.has(c.id))
-        // Arrears-first: oldest due_date first (charges already sorted ascending).
-        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+      const { data, error } = await supabase.rpc('post_rpt_payment', {
+        p_charge_ids: Array.from(selectedIds),
+        p_payer_name: payerName.trim(),
+        p_payer_type: payerType,
+        p_payment_method: paymentMethod,
+        p_tender_amount: tenderCentavos,
+        p_cash_session_id: cashSession.id,
+        p_notes: paymentNotes.trim() || null,
+      });
+      if (error) throw new Error(error.message);
 
-      const totalAllocated = selectedTotal; // balance + interest for selected
-      const change = tenderCentavos - totalAllocated;
-      const nowIso = new Date().toISOString();
-
-      // 1. Create the payment record.
-      const { data: paymentRow, error: paymentErr } = await supabase
-        .from('payments')
-        .insert({
-          property_id: selectedCharges[0]?.property_id ?? null,
-          payer_name: payerName.trim(),
-          payer_type: payerType,
-          payment_method: paymentMethod,
-          tender_amount: tenderCentavos,
-          total_allocated: totalAllocated,
-          change_amount: change,
-          payment_date: nowIso,
-          status: 'initiated',
-          cash_session_id: cashSession?.id ?? null,
-          collected_by: staffUser?.id ?? null,
-          notes: paymentNotes.trim() || null,
-        })
-        .select<string, Payment>()
-        .single();
-
-      if (paymentErr) throw new Error(paymentErr.message);
-      const paymentId = paymentRow.id;
-
-      // 2. Allocate payment to selected charges (oldest first).
-      let remaining = totalAllocated;
-      const allocationRows: Record<string, unknown>[] = [];
-      const chargeUpdates: { id: string; paid_amount: number; balance: number; status: string }[] = [];
-
-      for (const c of selectedCharges) {
-        if (remaining <= 0) break;
-
-        const principalPortion = c.balance ?? 0;
-        const interestPortion = c.interest_accrued;
-        const chargeTotal = principalPortion + interestPortion;
-        const allocate = Math.min(remaining, chargeTotal);
-
-        // Split the allocation between principal and interest (interest first up to its share).
-        const allocInterest = Math.min(interestPortion, allocate);
-        const allocPrincipal = allocate - allocInterest;
-
-        const shares = computeRevenueShares(allocate, c.levy_type);
-
-        allocationRows.push({
-          payment_id: paymentId,
-          tax_charge_id: c.id,
-          allocated_amount: allocate,
-          principal_amount: allocPrincipal,
-          interest_amount: allocInterest,
-          discount_amount: 0,
-          share_province: shares.share_province,
-          share_municipality: shares.share_municipality,
-          share_barangay: shares.share_barangay,
-          share_sef_province: shares.share_sef_province,
-          share_sef_municipality: shares.share_sef_municipality,
-        });
-
-        const newPaid = (c.paid_amount ?? 0) + allocPrincipal;
-        const newBalance = (c.balance ?? 0) - allocPrincipal;
-        const newStatus = newBalance <= 0 ? 'paid' : 'partially_paid';
-
-        chargeUpdates.push({
-          id: c.id,
-          paid_amount: newPaid,
-          balance: Math.max(0, newBalance),
-          status: newStatus,
-        });
-
-        remaining -= allocate;
-      }
-
-      // 3. Insert allocations.
-      if (allocationRows.length > 0) {
-        const { error: allocErr } = await supabase
-          .from('payment_allocations')
-          .insert(allocationRows);
-        if (allocErr) throw new Error(allocErr.message);
-      }
-
-      // 4. Update each tax_charge.
-      for (const cu of chargeUpdates) {
-        const { error: updErr } = await supabase
-          .from('tax_charges')
-          .update({
-            paid_amount: cu.paid_amount,
-            balance: cu.balance,
-            status: cu.status,
-          })
-          .eq('id', cu.id);
-        if (updErr) throw new Error(updErr.message);
-      }
-
-      // 5. Create the receipt.
-      const receiptNumber = generateReceiptNumber();
-      const { data: receiptRow, error: receiptErr } = await supabase
-        .from('receipts')
-        .insert({
-          receipt_number: receiptNumber,
-          payment_id: paymentId,
-          property_id: selectedCharges[0]?.property_id ?? null,
-          amount: totalAllocated,
-          issued_date: nowIso,
-          issued_by: staffUser?.id ?? null,
-          status: 'issued',
-        })
-        .select<string, Receipt>()
-        .single();
-
-      if (receiptErr) throw new Error(receiptErr.message);
-
-      // 6. Update payment with receipt_id and status='receipted'.
-      const { error: updPayErr } = await supabase
-        .from('payments')
-        .update({ receipt_id: receiptRow.id, status: 'receipted' })
-        .eq('id', paymentId);
-      if (updPayErr) throw new Error(updPayErr.message);
-
-      // 7. Update cash session totals (if a session is open).
-      if (cashSession) {
-        const { error: sessErr } = await supabase
-          .from('cash_sessions')
-          .update({
-            total_collected: (cashSession.total_collected ?? 0) + totalAllocated,
-            total_receipts: (cashSession.total_receipts ?? 0) + 1,
-          })
-          .eq('id', cashSession.id);
-        if (sessErr) throw new Error(sessErr.message);
-      }
-
-      // Success — show receipt info and reset form.
-      setSuccess({ receiptNumber, changeDue: change, totalAllocated });
+      const result = data as {
+        receipt_number: string;
+        change_amount: number;
+        total_allocated: number;
+        discount_amount: number;
+      };
+      setSuccess({
+        receiptNumber: result.receipt_number,
+        changeDue: result.change_amount,
+        totalAllocated: result.total_allocated,
+        discountAmount: result.discount_amount ?? 0,
+      });
       setPayerName('');
       setPayerType('taxpayer');
       setPaymentMethod('cash');
@@ -431,10 +320,8 @@ export function CollectionPage() {
       setCharges([]);
       setSearched(false);
       setSearchTerm('');
-
-      // Refresh history + session.
-      loadPayments();
-      loadCashSession();
+      void loadPayments();
+      void loadCashSession();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'An unexpected error occurred while processing the payment.');
     } finally {
@@ -449,28 +336,11 @@ export function CollectionPage() {
   async function openSession() {
     if (!staffUser) return;
     setSessionError(null);
-    const sessionNumber = generateSessionNumber();
-    const nowIso = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from('cash_sessions')
-      .insert({
-        session_number: sessionNumber,
-        cashier_id: staffUser.id,
-        opened_at: nowIso,
-        opening_balance: 0,
-        closing_balance: null,
-        total_collected: 0,
-        total_receipts: 0,
-        status: 'open',
-      })
-      .select<string, CashSession>()
-      .single();
-
+    const { data, error } = await supabase.rpc('open_rpt_cash_session');
     if (error) {
       setSessionError(error.message);
     } else {
-      setCashSession(data);
+      setCashSession(data as CashSession);
     }
   }
 
@@ -478,17 +348,9 @@ export function CollectionPage() {
     if (!cashSession) return;
     setClosingSession(true);
     setSessionError(null);
-
-    const nowIso = new Date().toISOString();
-    const { error } = await supabase
-      .from('cash_sessions')
-      .update({
-        closed_at: nowIso,
-        closing_balance: cashSession.total_collected ?? 0,
-        status: 'closed',
-      })
-      .eq('id', cashSession.id);
-
+    const { error } = await supabase.rpc('close_rpt_cash_session', {
+      p_session_id: cashSession.id,
+    });
     if (error) {
       setSessionError(error.message);
     } else {
@@ -584,6 +446,7 @@ export function CollectionPage() {
                 </p>
                 <p className="mt-0.5 text-sm text-green-800">
                   Total Allocated: <strong>{formatCurrency(success.totalAllocated)}</strong>
+                  {success.discountAmount > 0 && <>{' · '}Advance Discount: <strong>{formatCurrency(success.discountAmount)}</strong></>}
                   {' · '}
                   Change Due: <strong>{formatCurrency(success.changeDue)}</strong>
                 </p>
@@ -778,7 +641,7 @@ export function CollectionPage() {
               <div className="mt-5 rounded-lg bg-gray-50 p-4">
                 <div className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
                   <div>
-                    <p className="text-xs text-gray-500">Selected Total</p>
+                    <p className="text-xs text-gray-500">Estimated Total Before Discount</p>
                     <p className="font-semibold text-gray-900">{formatCurrency(selectedTotal)}</p>
                   </div>
                   <div>
@@ -786,7 +649,7 @@ export function CollectionPage() {
                     <p className="font-semibold text-gray-900">{formatCurrency(tenderCentavos)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Change Due</p>
+                    <p className="text-xs text-gray-500">Estimated Change</p>
                     <p className="font-semibold text-green-700">{formatCurrency(changeDue)}</p>
                   </div>
                   <div>
@@ -795,8 +658,8 @@ export function CollectionPage() {
                   </div>
                 </div>
                 {isUnderTender && (
-                  <p className="mt-2 text-xs font-medium text-red-600">
-                    Tender amount is less than the total due. Please increase the tender or deselect charges.
+                  <p className="mt-2 text-xs text-blue-700">
+                    The database will verify the final amount. A discount applies only when the selected charges and payment date meet an active ordinance rule.
                   </p>
                 )}
               </div>

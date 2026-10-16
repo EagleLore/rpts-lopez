@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { Card, Badge, Button, Modal, Input, Select, EmptyState, PageHeader } from '@/components/ui';
 import { formatCurrency, formatDate, computeInterest, capitalize } from '@/lib/utils';
 import { LEVY_TYPES } from '@/lib/constants';
-import type { TaxCharge, Assessment, TaxRate, DueDate } from '@/lib/types';
+import type { TaxCharge } from '@/lib/types';
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Types                                                                       */
@@ -28,18 +28,6 @@ interface TaxChargeWithJoins extends Omit<TaxCharge, 'property' | 'property_unit
 interface ChargeWithInterest extends TaxChargeWithJoins {
   interest_accrued: number;
   total_due: number;
-}
-
-/** Assessment row needed for billing generation. */
-interface AssessmentForBilling {
-  id: string;
-  property_id: string;
-  property_unit_id: string;
-  market_value: number;
-  assessment_level_percent: number;
-  assessed_value: number;
-  classification: string;
-  property: { pin: string | null; tax_declaration_number: string | null } | null;
 }
 
 /** Statement tree: year → quarter → charges. */
@@ -231,164 +219,15 @@ export function BillingPage() {
     }
 
     try {
-      // 1. Fetch active tax rates (basic + sef).
-      const { data: ratesData, error: ratesErr } = await supabase
-        .from('tax_rates')
-        .select<string, TaxRate>('id, levy_type, rate_percent, status')
-        .eq('status', 'active')
-        .in('levy_type', ['basic', 'sef']);
-
-      if (ratesErr) throw new Error(ratesErr.message);
-      if (!ratesData || ratesData.length === 0) {
-        throw new Error('No active tax rates found. Configure tax rates before generating billing.');
-      }
-
-      const basicRate = ratesData.find((r) => r.levy_type === 'basic')?.rate_percent ?? 0;
-      const sefRate = ratesData.find((r) => r.levy_type === 'sef')?.rate_percent ?? 0;
-      if (basicRate <= 0 || sefRate <= 0) {
-        throw new Error('Active basic or SEF tax rate is zero or missing.');
-      }
-
-      // 2. Fetch due dates for the tax year.
-      const { data: dueDatesData, error: dueDatesErr } = await supabase
-        .from('due_dates')
-        .select<string, DueDate>('id, tax_year, quarter, due_date')
-        .eq('tax_year', year)
-        .order('quarter', { ascending: true });
-
-      if (dueDatesErr) throw new Error(dueDatesErr.message);
-      if (!dueDatesData || dueDatesData.length < 4) {
-        throw new Error(
-          `Due dates for tax year ${year} are not fully configured. Found ${dueDatesData?.length ?? 0} of 4 quarters.`
-        );
-      }
-
-      const dueDateMap = new Map<number, string>();
-      for (const d of dueDatesData) {
-        dueDateMap.set(d.quarter, d.due_date);
-      }
-
-      // 3. Fetch all approved assessments.
-      const { data: assessments, error: assErr } = await supabase
-        .from('assessments')
-        .select<string, AssessmentForBilling>(`
-          id, property_id, property_unit_id,
-          market_value, assessment_level_percent, assessed_value,
-          classification,
-          property:properties!property_id(pin, tax_declaration_number)
-        `)
-        .eq('status', 'approved');
-
-      if (assErr) throw new Error(assErr.message);
-      if (!assessments || assessments.length === 0) {
-        setGenResult({
-          generated: 0,
-          skipped: 0,
-          message: 'No approved assessments found to generate billing for.',
-        });
-        setGenerating(false);
-        return;
-      }
-
-      // 4. Determine which (assessment_id, tax_year) pairs already have charges
-      //    so we can skip them idempotently.
-      const assessmentIds = assessments.map((a) => a.id);
-      const { data: existing, error: existingErr } = await supabase
-        .from('tax_charges')
-        .select('assessment_id, tax_year')
-        .in('assessment_id', assessmentIds)
-        .eq('tax_year', year);
-
-      if (existingErr) throw new Error(existingErr.message);
-
-      const existingKeys = new Set<string>();
-      for (const row of existing ?? []) {
-        existingKeys.add(`${row.assessment_id}:${row.tax_year}`);
-      }
-
-      // 5. Build charge rows.
-      const rows: Record<string, unknown>[] = [];
-      let skipped = 0;
-
-      for (const a of assessments) {
-        if (existingKeys.has(`${a.id}:${year}`)) {
-          skipped++;
-          continue;
-        }
-
-        const annualBasic = Math.round((a.assessed_value * basicRate) / 100);
-        const annualSef = Math.round((a.assessed_value * sefRate) / 100);
-        const qBasic = Math.round(annualBasic / 4);
-        const qSef = Math.round(annualSef / 4);
-
-        for (const q of QUARTERS) {
-          const dueDate = dueDateMap.get(q);
-          if (!dueDate) continue;
-
-          for (const { levy, gross } of [
-            { levy: 'basic', gross: qBasic },
-            { levy: 'sef', gross: qSef },
-          ]) {
-            if (gross <= 0) continue;
-
-            rows.push({
-              property_id: a.property_id,
-              property_unit_id: a.property_unit_id,
-              assessment_id: a.id,
-              tax_year: year,
-              quarter: q,
-              levy_type: levy,
-              gross_amount: gross,
-              discount_amount: 0,
-              interest_amount: 0,
-              net_amount: gross,
-              paid_amount: 0,
-              balance: gross,
-              due_date: dueDate,
-              status: 'unpaid',
-              charge_basis: {
-                market_value: a.market_value,
-                assessment_level_percent: a.assessment_level_percent,
-                assessed_value: a.assessed_value,
-                basic_rate: basicRate,
-                sef_rate: sefRate,
-                annual_basic: annualBasic,
-                annual_sef: annualSef,
-                quarterly_basic: qBasic,
-                quarterly_sef: qSef,
-                classification: a.classification,
-              },
-            });
-          }
-        }
-      }
-
-      // 6. Insert in batches (Supabase JS limit ~1 row per call but upsert
-      //    handles arrays; batch to stay well under payload limits).
-      let generated = 0;
-      const BATCH = 200;
-      for (let i = 0; i < rows.length; i += BATCH) {
-        const batch = rows.slice(i, i + BATCH);
-        const { error: insertErr } = await supabase
-          .from('tax_charges')
-          .insert(batch);
-        if (insertErr) throw new Error(insertErr.message);
-        generated += batch.length;
-      }
-
-      setGenResult({
-        generated,
-        skipped,
-        message:
-          generated > 0
-            ? `Successfully generated ${generated} tax charge${generated !== 1 ? 's' : ''} for tax year ${year}.`
-            : `No new charges generated. ${skipped} assessment${skipped !== 1 ? 's' : ''} already had charges for ${year}.`,
+          // Charge calculation, validation, and insertion run in one database transaction.
+      const { data, error } = await supabase.rpc('generate_rpt_charges', {
+        p_tax_year: year,
       });
+      if (error) throw new Error(error.message);
 
-      // Refresh the list.
-      if (generated > 0) {
-        loadCharges();
-      }
+      const result = data as { generated: number; skipped: number; message: string };
+      setGenResult(result);
+      if (result.generated > 0) loadCharges();
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'An unexpected error occurred during billing generation.');
     } finally {
@@ -814,7 +653,7 @@ export function BillingPage() {
             <ul className="space-y-1 text-xs">
               <li className="flex items-center gap-2">
                 <ChevronRight className="h-3 w-3 text-gray-400" />
-                Fetches all <strong>approved</strong> assessments
+                Uses the latest approved assessment for each active, non-exempt property unit
               </li>
               <li className="flex items-center gap-2">
                 <ChevronRight className="h-3 w-3 text-gray-400" />
@@ -826,7 +665,7 @@ export function BillingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <ChevronRight className="h-3 w-3 text-gray-400" />
-                Quarterly Charge = Annual Tax ÷ 4
+                Quarterly amounts are split in centavos so all four quarters equal the annual charge
               </li>
               <li className="flex items-center gap-2">
                 <ChevronRight className="h-3 w-3 text-gray-400" />
@@ -834,7 +673,7 @@ export function BillingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <ChevronRight className="h-3 w-3 text-gray-400" />
-                Rates sourced from <code className="rounded bg-gray-200 px-1">tax_rates</code> where status = active
+                Server-side billing requires effective rates, an authorized levying jurisdiction, and ordinance references
               </li>
             </ul>
           </div>

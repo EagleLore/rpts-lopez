@@ -15,7 +15,7 @@ import {
 } from '@/lib/utils';
 import { PROPERTY_CLASSIFICATIONS } from '@/lib/constants';
 import type {
-  Assessment, AssessmentLevel,
+  Assessment, AssessmentLevel, ValuationSchedule,
 } from '@/lib/types';
 
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -107,11 +107,13 @@ export function AssessmentPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [unitsLoading, setUnitsLoading] = useState(false);
+  const [certifiedSchedules, setCertifiedSchedules] = useState<ValuationSchedule[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   // form fields
   const [fUnitId, setFUnitId] = useState('');
+  const [fScheduleId, setFScheduleId] = useState('');
   const [fTd, setFTd] = useState('');
   const [fAssessmentDate, setFAssessmentDate] = useState(
     new Date().toISOString().split('T')[0],
@@ -129,6 +131,7 @@ export function AssessmentPage() {
   /* ── Detail modal state ──────────────────────────────────────────────── */
   const [detailAssessment, setDetailAssessment] = useState<AssessmentWithJoins | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   /* ────────────────────────────────────────────────────────────────────── */
   /*  Data loading                                                           */
@@ -191,6 +194,21 @@ export function AssessmentPage() {
     setUnitsLoading(false);
   }, []);
 
+  const loadCertifiedSchedules = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('valuation_schedules')
+      .select('*')
+      .in('status', ['certified', 'in_force'])
+      .not('certification_reference', 'is', null)
+      .order('effectivity_date', { ascending: false });
+    if (error) {
+      console.error('Failed to load certified valuation schedules:', error);
+      setCertifiedSchedules([]);
+      return;
+    }
+    setCertifiedSchedules((data ?? []) as ValuationSchedule[]);
+  }, []);
+
   useEffect(() => {
     loadAssessments();
   }, [loadAssessments]);
@@ -217,6 +235,7 @@ export function AssessmentPage() {
         .eq('status', 'active')
         .eq('classification', fClassification)
         .eq('property_type', selectedUnit?.unit_type ?? '')
+        .lte('effective_date', fEffectiveDate)
         .order('effective_date', { ascending: false })
         .limit(1);
 
@@ -239,7 +258,7 @@ export function AssessmentPage() {
 
     suggestLevel();
     return () => { cancelled = true; };
-  }, [fUnitId, fClassification, selectedUnit]);
+  }, [fUnitId, fClassification, fEffectiveDate, selectedUnit]);
 
   /* ────────────────────────────────────────────────────────────────────── */
   /*  Derived: computed assessed value (display, in pesos)                    */
@@ -279,6 +298,7 @@ export function AssessmentPage() {
 
   function resetForm() {
     setFUnitId('');
+    setFScheduleId('');
     setFTd('');
     setFAssessmentDate(new Date().toISOString().split('T')[0]);
     setFEffectiveDate(new Date().toISOString().split('T')[0]);
@@ -294,6 +314,7 @@ export function AssessmentPage() {
   function openCreate() {
     resetForm();
     loadUnits();
+    loadCertifiedSchedules();
     setShowCreate(true);
   }
 
@@ -309,6 +330,11 @@ export function AssessmentPage() {
     if (isNaN(lvl) || lvl < 0 || lvl > 100) { setCreateError('Assessment level must be between 0 and 100.'); return; }
     if (!fAssessmentDate) { setCreateError('Please enter an assessment date.'); return; }
     if (!fEffectiveDate) { setCreateError('Please enter an effective date.'); return; }
+    if (!fScheduleId) { setCreateError('Select a certified valuation schedule effective on this assessment date.'); return; }
+    const schedule = certifiedSchedules.find((item) => item.id === fScheduleId);
+    if (!schedule || !schedule.effectivity_date || schedule.effectivity_date > fEffectiveDate || !schedule.certification_reference || schedule.certification_reference.toLowerCase().includes('pending')) {
+      setCreateError('The selected valuation schedule is not certified and effective for this assessment date.'); return;
+    }
 
     const unit = units.find((u) => u.id === fUnitId);
     if (!unit) { setCreateError('Selected property unit not found.'); return; }
@@ -323,6 +349,7 @@ export function AssessmentPage() {
       tax_declaration_number: fTd || null,
       assessment_date: fAssessmentDate,
       effective_date: fEffectiveDate,
+      schedule_id: fScheduleId,
       market_value: marketCentavos,
       classification: fClassification,
       actual_use: fActualUse || null,
@@ -353,6 +380,7 @@ export function AssessmentPage() {
     assessment: AssessmentWithJoins,
     newStatus: 'pending_review' | 'approved' | 'cancelled',
   ) {
+    setActionError(null);
     setActionLoading(true);
 
     const patch: Record<string, unknown> = { status: newStatus };
@@ -384,6 +412,7 @@ export function AssessmentPage() {
 
     if (error) {
       console.error('Failed to update status:', error);
+      setActionError(error.message);
       return;
     }
 
@@ -516,7 +545,7 @@ export function AssessmentPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setDetailAssessment(a)}
+                        onClick={() => { setActionError(null); setDetailAssessment(a); }}
                       >
                         <Eye className="h-4 w-4" />
                         View
@@ -619,6 +648,25 @@ export function AssessmentPage() {
             />
           </div>
 
+          <Select
+            label="Certified Valuation Schedule"
+            value={fScheduleId}
+            onChange={setFScheduleId}
+            options={certifiedSchedules
+              .filter((schedule) => schedule.effectivity_date && schedule.effectivity_date <= fEffectiveDate
+                && schedule.certification_reference
+                && !schedule.certification_reference.toLowerCase().includes('pending'))
+              .map((schedule) => ({
+                value: schedule.id,
+                label: `${schedule.name} · v${schedule.version} · ${capitalize(schedule.status)}`,
+              }))}
+            placeholder="Select an effective certified schedule"
+            required
+          />
+          <p className="-mt-3 text-xs text-gray-500">
+            Only certified schedules effective by the assessment date can be used for approval.
+          </p>
+
           {/* Market value + classification + actual use */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Input
@@ -664,7 +712,7 @@ export function AssessmentPage() {
               )}
               {!levelLocked && fClassification && (
                 <p className="mt-1 text-xs text-gray-400">
-                  No matching schedule found — enter manually.
+                  No effective assessment level is configured. Approval will remain blocked until an authorized level is entered.
                 </p>
               )}
             </div>
@@ -718,7 +766,7 @@ export function AssessmentPage() {
 
       <Modal
         open={detailAssessment !== null}
-        onClose={() => setDetailAssessment(null)}
+        onClose={() => { setDetailAssessment(null); setActionError(null); }}
         title="Assessment Detail"
         size="xl"
       >
@@ -726,6 +774,7 @@ export function AssessmentPage() {
           <DetailView
             assessment={detailAssessment}
             actionLoading={actionLoading}
+            actionError={actionError}
             onStatusChange={updateStatus}
             onRefresh={loadAssessments}
           />
@@ -742,6 +791,7 @@ export function AssessmentPage() {
 interface DetailViewProps {
   assessment: AssessmentWithJoins;
   actionLoading: boolean;
+  actionError: string | null;
   onStatusChange: (
     a: AssessmentWithJoins,
     status: 'pending_review' | 'approved' | 'cancelled',
@@ -749,7 +799,7 @@ interface DetailViewProps {
   onRefresh: () => void;
 }
 
-function DetailView({ assessment, actionLoading, onStatusChange, onRefresh }: DetailViewProps) {
+function DetailView({ assessment, actionLoading, actionError, onStatusChange, onRefresh }: DetailViewProps) {
   const a = assessment;
   const marketPesos = a.market_value;
   const assessedPesos = a.assessed_value;
@@ -757,6 +807,11 @@ function DetailView({ assessment, actionLoading, onStatusChange, onRefresh }: De
 
   return (
     <div className="space-y-5">
+      {actionError && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
       {/* Status + key identifiers */}
       <div className="flex flex-wrap items-center gap-3">
         <Badge status={a.status} />

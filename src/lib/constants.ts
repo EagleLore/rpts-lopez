@@ -61,13 +61,6 @@ export const INTEREST_MAX_MONTHS = 36;
 export const DISCOUNT_MAX_PERCENT = 20;
 export const RA12001_CAP_PERCENT = 6;
 
-export const REVENUE_SHARES = {
-  basic: { province: 0.35, municipality: 0.40, barangay: 0.25 },
-  sef: { sef_province: 0.50, sef_municipality: 0.50 },
-  idle_land: { province: 0.35, municipality: 0.40, barangay: 0.25 },
-  special_levy: {},
-};
-
 export const QUARTERLY_DUE_DATES = {
   1: 'March 31',
   2: 'June 30',
