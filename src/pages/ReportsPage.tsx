@@ -237,21 +237,98 @@ function changeColor(current: number, previous: number): string {
   return current >= previous ? 'text-green-600' : 'text-red-600';
 }
 
+function downloadReport(title: string, format: 'csv' | 'xls') {
+  const content = document.getElementById('active-report-content');
+  if (!content) return;
+
+  const tables = Array.from(content.querySelectorAll('table'));
+  const tableRows = tables.map((table) =>
+    Array.from(table.querySelectorAll('tr')).map((row) =>
+      Array.from(row.querySelectorAll('th, td')).map((cell) => cell.textContent?.trim() ?? '')
+    )
+  );
+  const safeTitle = title.replace(/[^a-z0-9-]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+  let blob: Blob;
+  let filename: string;
+
+  if (format === 'csv') {
+    const csvRows: string[][] = [[title], [`Generated on ${formatDate(new Date())}`], []];
+    tableRows.forEach((rows, index) => {
+      if (index > 0) csvRows.push([]);
+      csvRows.push(...rows);
+    });
+    const csv = csvRows
+      .map((row) => row.map((value) => {
+        const safeValue = /^[=+@\-]/.test(value) ? `'${value}` : value;
+        return `"${safeValue.replace(/"/g, '""')}"`;
+      }).join(','))
+      .join('\r\n');
+    blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
+    filename = `${safeTitle}.csv`;
+  } else {
+    const escapeHtml = (value: string) => value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const workbookTables = tableRows.map((rows) =>
+      `<table border="1">${rows.map((row, rowIndex) => `<tr>${row.map((value) => {
+        const tag = rowIndex === 0 ? 'th' : 'td';
+        return `<${tag}>${escapeHtml(value)}</${tag}>`;
+      }).join('')}</tr>`).join('')}</table>`
+    ).join('<br/>');
+    const html = `<html><head><meta charset="utf-8"></head><body><h1>${escapeHtml(title)}</h1><p>Generated on ${escapeHtml(formatDate(new Date()))}</p>${workbookTables}</body></html>`;
+    blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    filename = `${safeTitle}.xls`;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Shared UI components                                                        */
 /* ────────────────────────────────────────────────────────────────────────── */
 
 function ReportHeader({ title, description }: { title: string; description: string }) {
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+
   return (
     <div className="mb-6 flex items-start justify-between gap-4">
       <div className="min-w-0">
         <h2 className="text-lg font-bold text-gray-900">{title}</h2>
         <p className="mt-1 text-sm text-gray-500">{description}</p>
       </div>
-      <Button variant="outline" size="sm" className="flex-shrink-0">
-        <Download className="h-4 w-4" />
-        Print / Export
-      </Button>
+      <div className="relative flex-shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-expanded={exportMenuOpen}
+          onClick={() => setExportMenuOpen((open) => !open)}
+        >
+          <Download className="h-4 w-4" />
+          Print / Export
+        </Button>
+        {exportMenuOpen && (
+          <div className="absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+            <button className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { setExportMenuOpen(false); window.print(); }}>
+              Print / Save as PDF
+            </button>
+            <button className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { downloadReport(title, 'xls'); setExportMenuOpen(false); }}>
+              Export Excel (.xls)
+            </button>
+            <button className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50" onClick={() => { downloadReport(title, 'csv'); setExportMenuOpen(false); }}>
+              Export CSV (.csv)
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1669,7 +1746,7 @@ export function ReportsPage() {
         </div>
 
         {/* Report content */}
-        <div className="min-w-0 flex-1">
+        <div id="active-report-content" className="min-w-0 flex-1">
           {activeReport === 'collection_efficiency' && (
             <CollectionEfficiencyReport year={selectedYear} />
           )}

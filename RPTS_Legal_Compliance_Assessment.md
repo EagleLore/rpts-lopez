@@ -135,3 +135,13 @@ Fixed the payment and billing SQL definitions after PostgreSQL reported `functio
 ### Revenue Summary report loading correction — 17 October 2026
 
 The Revenue Summary query used `payment_date` to split payment allocations between the selected year and the previous year, but did not include `payment_date` in the selected payment fields. That left the date undefined during client-side grouping and could throw before the component cleared its loading state. The query now selects `payment_date`. The loader also catches query and processing errors and always clears the loading indicator, allowing the report to display an error instead of spinning indefinitely.
+
+
+### Reports Print / Export button correction — 17 October 2026
+
+The shared report header displayed a Print / Export button without an `onClick` handler, so clicking it had no effect. The button now opens the browser print dialog with `window.print()`. Users can print the report or choose the browser’s Save as PDF destination. The action is shared by all report types because they use the same report header.
+
+
+### Reports CSV and Excel-compatible export — 17 October 2026
+
+Expanded the shared Print / Export menu with CSV and Excel-compatible `.xls` downloads. Exports use the visible report tables and include the report title and generation date. CSV fields are quoted and formula-like cell values are escaped to reduce spreadsheet formula-injection risk. The Excel option uses an HTML table workbook that Microsoft Excel can open; it does not create a modern `.xlsx` file. No export package or database change is required.
