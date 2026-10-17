@@ -125,3 +125,8 @@ The compliance migration defines and grants `public.open_rpt_cash_session()` wit
 ### Collection property search correction — 17 October 2026
 
 Fixed the Collection and Payment property lookup. The previous PostgREST request tried to apply a root `.or()` logic-tree filter to fields on the embedded `properties` relationship, which PostgREST rejected. The page now searches PIN and tax-declaration number directly on `properties`, combines the matching property UUIDs, and loads unpaid or partially paid charges by `property_id`.
+
+
+### Payment posting UUID aggregate correction — 17 October 2026
+
+Fixed the payment and billing SQL definitions after PostgreSQL reported `function min(uuid) does not exist`. PostgreSQL does not provide `min`/`max` aggregates for UUID values in this environment. Property and jurisdiction UUID selection now uses `array_agg` (the associated counts still determine when one unique value is expected). The updated migration must be rerun against the target Supabase project so the `generate_rpt_charges` and `post_rpt_payment` function definitions are replaced.

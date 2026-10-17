@@ -351,7 +351,7 @@ BEGIN
       RAISE EXCEPTION 'Approved assessment % has no currently valid certified valuation schedule.', a.assessment_id;
     END IF;
 
-    SELECT count(*), max(rate.rate_percent), max(rate.jurisdiction_id)
+    SELECT count(*), max(rate.rate_percent), (array_agg(rate.jurisdiction_id))[1]
     INTO v_basic_count, v_basic_rate, v_basic_jurisdiction
     FROM public.tax_rates rate
     JOIN public.jurisdictions jurisdiction ON jurisdiction.id = rate.jurisdiction_id
@@ -379,7 +379,7 @@ BEGIN
       RAISE EXCEPTION 'The configured basic RPT rate exceeds the statutory ceiling.';
     END IF;
 
-    SELECT count(*), max(rate.rate_percent), max(rate.jurisdiction_id)
+    SELECT count(*), max(rate.rate_percent), (array_agg(rate.jurisdiction_id))[1]
     INTO v_sef_count, v_sef_rate, v_sef_jurisdiction
     FROM public.tax_rates rate
     JOIN public.jurisdictions jurisdiction ON jurisdiction.id = rate.jurisdiction_id
@@ -632,7 +632,8 @@ BEGIN
     RAISE EXCEPTION 'Select and settle all prior-year delinquencies for the property before paying a current-year charge.';
   END IF;
 
-  SELECT count(DISTINCT property_id), min(property_id) INTO v_property_count, v_property_id
+  SELECT count(DISTINCT property_id), (array_agg(DISTINCT property_id ORDER BY property_id))[1]
+  INTO v_property_count, v_property_id
   FROM public.tax_charges WHERE id = ANY(p_charge_ids);
 
   -- Automatic discount is limited to one complete annual basic+SEF bill for one unit,
