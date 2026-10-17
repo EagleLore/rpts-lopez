@@ -130,3 +130,8 @@ Fixed the Collection and Payment property lookup. The previous PostgREST request
 ### Payment posting UUID aggregate correction — 17 October 2026
 
 Fixed the payment and billing SQL definitions after PostgreSQL reported `function min(uuid) does not exist`. PostgreSQL does not provide `min`/`max` aggregates for UUID values in this environment. Property and jurisdiction UUID selection now uses `array_agg` (the associated counts still determine when one unique value is expected). The updated migration must be rerun against the target Supabase project so the `generate_rpt_charges` and `post_rpt_payment` function definitions are replaced.
+
+
+### Revenue Summary report loading correction — 17 October 2026
+
+The Revenue Summary query used `payment_date` to split payment allocations between the selected year and the previous year, but did not include `payment_date` in the selected payment fields. That left the date undefined during client-side grouping and could throw before the component cleared its loading state. The query now selects `payment_date`. The loader also catches query and processing errors and always clears the loading indicator, allowing the report to display an error instead of spinning indefinitely.

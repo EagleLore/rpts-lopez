@@ -1392,27 +1392,24 @@ function RevenueSummaryReport({ year }: { year: number }) {
     async function load() {
       setLoading(true);
       setError(null);
-
-      const { data: payments, error: err } = await supabase
-        .from('payments')
-        .select(
-          `id,
+      try {
+        const { data: payments, error: err } = await supabase
+          .from('payments')
+          .select(
+            `id,
+           payment_date,
            allocations:payment_allocations(
              allocated_amount,
              share_province, share_municipality, share_barangay,
              share_sef_province, share_sef_municipality,
              tax_charge:tax_charges(levy_type)
            )`
-        )
-        .gte('payment_date', `${year - 1}-01-01`)
-        .lt('payment_date', `${year + 1}-01-01`)
-        .in('status', VALID_PAYMENT_STATUSES);
+          )
+          .gte('payment_date', `${year - 1}-01-01`)
+          .lt('payment_date', `${year + 1}-01-01`)
+          .in('status', VALID_PAYMENT_STATUSES);
 
-      if (err) {
-        setError(err.message);
-        setLoading(false);
-        return;
-      }
+        if (err) throw err;
 
       const rows = (payments ?? []) as Record<string, unknown>[];
 
@@ -1479,7 +1476,11 @@ function RevenueSummaryReport({ year }: { year: number }) {
       const previousYearTotal = byLevyType.reduce((s, l) => s + l.previousYear, 0);
 
       setData({ byLevyType, byRecipient, currentYearTotal, previousYearTotal });
-      setLoading(false);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load revenue summary.');
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, [year]);
