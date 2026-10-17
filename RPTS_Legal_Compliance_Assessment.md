@@ -145,3 +145,8 @@ The shared report header displayed a Print / Export button without an `onClick` 
 ### Reports CSV and Excel-compatible export — 17 October 2026
 
 Expanded the shared Print / Export menu with CSV and Excel-compatible `.xls` downloads. Exports use the visible report tables and include the report title and generation date. CSV fields are quoted and formula-like cell values are escaped to reduce spreadsheet formula-injection risk. The Excel option uses an HTML table workbook that Microsoft Excel can open; it does not create a modern `.xlsx` file. No export package or database change is required.
+
+
+### Report summary card amount wrapping — 17 October 2026
+
+Adjusted the shared `StatCard` layout so large currency values, including Total Market Value and Total Assessed Value, wrap within the card. The value column can shrink, currency text can break at narrow widths, and the icon stays fixed instead of forcing the amount outside the card. This also benefits other report and dashboard summary cards using the shared component.

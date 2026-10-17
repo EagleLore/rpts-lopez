@@ -166,13 +166,13 @@ export function StatCard({ label, value, icon, trend, color = 'blue' }: StatCard
 
   return (
     <Card className="p-5">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-gray-500">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+          <p className="mt-1 text-xl font-bold leading-tight text-gray-900 sm:text-2xl [overflow-wrap:anywhere]">{value}</p>
           {trend && <p className="mt-1 text-xs text-gray-400">{trend}</p>}
         </div>
-        <div className={`rounded-lg p-3 ${colors[color] || colors.blue}`}>
+        <div className={`shrink-0 rounded-lg p-3 ${colors[color] || colors.blue}`}>
           {icon}
         </div>
       </div>
