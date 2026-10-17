@@ -149,4 +149,4 @@ Expanded the shared Print / Export menu with CSV and Excel-compatible `.xls` dow
 
 ### Report summary card amount wrapping — 17 October 2026
 
-Adjusted the shared `StatCard` layout so large currency values, including Total Market Value and Total Assessed Value, wrap within the card. The value column can shrink, currency text can break at narrow widths, and the icon stays fixed instead of forcing the amount outside the card. This also benefits other report and dashboard summary cards using the shared component.
+Adjusted the shared `StatCard` layout to prevent overflow while preserving readable amounts. The initial generic wrapping treatment broke currency values across digits and was visually poor; it has been replaced with an Assessment Roll-specific two-column layout at common screen sizes and single-line, slightly smaller currency values. The layout returns to four columns on very wide screens. The shared card supports an optional value style so other cards retain their existing appearance.

@@ -1373,7 +1373,7 @@ function AssessmentRollReport({ year }: { year: number }) {
     <div>
       <ReportHeader title={meta.title} description={meta.description} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         <StatCard
           label="Total Assessments"
           value={String(data.totalCount)}
@@ -1383,12 +1383,14 @@ function AssessmentRollReport({ year }: { year: number }) {
         <StatCard
           label="Total Market Value"
           value={formatCurrency(data.totalMarketValue)}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           icon={<Building2 className="h-6 w-6" />}
           color="teal"
         />
         <StatCard
           label="Total Assessed Value"
           value={formatCurrency(data.totalAssessedValue)}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           icon={<Calculator className="h-6 w-6" />}
           color="green"
         />
