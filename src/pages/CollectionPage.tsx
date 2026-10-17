@@ -139,14 +139,41 @@ export function CollectionPage() {
     setSearched(true);
     setSelectedIds(new Set());
 
+    // PostgREST does not support filtering an embedded relationship inside a root .or() tree.
+    // Search both identifier columns on properties directly, then query charges by their IDs.
+    const pattern = `%${term}%`;
+    const [pinResults, declarationResults] = await Promise.all([
+      supabase.from('properties').select('id').ilike('pin', pattern).limit(100),
+      supabase.from('properties').select('id').ilike('tax_declaration_number', pattern).limit(100),
+    ]);
+    const propertySearchError = pinResults.error || declarationResults.error;
+
+    if (propertySearchError) {
+      setChargeError(propertySearchError.message);
+      setCharges([]);
+      setLoadingCharges(false);
+      return;
+    }
+
+    const propertyIds = Array.from(new Set([
+      ...(pinResults.data ?? []).map((property) => property.id),
+      ...(declarationResults.data ?? []).map((property) => property.id),
+    ]));
+
+    if (propertyIds.length === 0) {
+      setCharges([]);
+      setLoadingCharges(false);
+      return;
+    }
+
     const { data, error: fetchError } = await supabase
       .from('tax_charges')
       .select<string, TaxChargeWithProperty>(`
         *,
         property:properties!property_id(pin, tax_declaration_number)
       `)
+      .in('property_id', propertyIds)
       .in('status', ['unpaid', 'partially_paid'])
-      .or(`property.pin.ilike.%${term}%,property.tax_declaration_number.ilike.%${term}%`)
       .order('due_date', { ascending: true });
 
     if (fetchError) {

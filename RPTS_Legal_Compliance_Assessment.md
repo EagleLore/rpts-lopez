@@ -120,3 +120,8 @@ Fixed the `PropertiesView` component’s missing `taxpayer` prop. The property d
 ### Cash-session RPC schema-cache note — 16 October 2026
 
 The compliance migration defines and grants `public.open_rpt_cash_session()` with no arguments, matching the Collection page RPC call. It now ends with `NOTIFY pgrst, 'reload schema';` so the API refreshes its function cache after migration. If the app reports that the function cannot be found, first confirm the migration was applied to the same Supabase project used by the frontend; if the function exists but remains undiscoverable, reload the PostgREST schema cache.
+
+
+### Collection property search correction — 17 October 2026
+
+Fixed the Collection and Payment property lookup. The previous PostgREST request tried to apply a root `.or()` logic-tree filter to fields on the embedded `properties` relationship, which PostgREST rejected. The page now searches PIN and tax-declaration number directly on `properties`, combines the matching property UUIDs, and loads unpaid or partially paid charges by `property_id`.
