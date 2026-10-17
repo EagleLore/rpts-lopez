@@ -149,22 +149,12 @@ interface StatCardProps {
   label: string;
   value: string;
   valueClassName?: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   trend?: ReactNode;
   color?: string;
 }
 
-export function StatCard({ label, value, valueClassName, icon, trend, color = 'blue' }: StatCardProps) {
-  const colors: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700',
-    green: 'bg-green-50 text-green-700',
-    red: 'bg-red-50 text-red-700',
-    yellow: 'bg-yellow-50 text-yellow-700',
-    purple: 'bg-purple-50 text-purple-700',
-    orange: 'bg-orange-50 text-orange-700',
-    teal: 'bg-teal-50 text-teal-700',
-  };
-
+export function StatCard({ label, value, valueClassName, trend }: StatCardProps) {
   return (
     <Card className="p-5">
       <div className="flex min-w-0 items-center justify-between gap-3">
@@ -172,9 +162,6 @@ export function StatCard({ label, value, valueClassName, icon, trend, color = 'b
           <p className="text-sm font-medium text-gray-500">{label}</p>
           <p className={`mt-1 font-bold text-gray-900 ${valueClassName ?? 'text-2xl leading-tight'}`}>{value}</p>
           {trend && <p className="mt-1 text-xs text-gray-400">{trend}</p>}
-        </div>
-        <div className={`shrink-0 rounded-lg p-3 ${colors[color] || colors.blue}`}>
-          {icon}
         </div>
       </div>
     </Card>

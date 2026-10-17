@@ -588,9 +588,10 @@ function ArrearsRecoveryReport({ year }: { year: number }) {
 
       const { data: charges, error: err } = await supabase
         .from('tax_charges')
-        .select('balance, paid_amount, tax_year, due_date')
-        .lt('due_date', `${year}-01-01`)
-        .neq('status', 'cancelled');
+        .select('balance, paid_amount, tax_year')
+        .lt('tax_year', year)
+        .neq('status', 'cancelled')
+        .neq('status', 'reversed');
 
       if (err) {
         setError(err.message);
@@ -602,7 +603,6 @@ function ArrearsRecoveryReport({ year }: { year: number }) {
         balance: number;
         paid_amount: number;
         tax_year: number;
-        due_date: string;
       }[];
 
       const yearMap = new Map<number, { opening: number; collected: number; outstanding: number }>();
@@ -658,7 +658,7 @@ function ArrearsRecoveryReport({ year }: { year: number }) {
       </div>
     );
   }
-  if (!data || data.totalOpening === 0) {
+  if (!data) {
     return (
       <div>
         <ReportHeader title={meta.title} description={meta.description} />
@@ -701,7 +701,7 @@ function ArrearsRecoveryReport({ year }: { year: number }) {
       <Card className="overflow-hidden">
         <div className="border-b border-gray-200 px-5 py-4">
           <h3 className="text-sm font-semibold text-gray-900">
-            Breakdown by Tax Year — Charges due before {year}
+            Breakdown by Prior Tax Year — Before {year}
           </h3>
         </div>
         <div className="overflow-x-auto">
@@ -716,7 +716,13 @@ function ArrearsRecoveryReport({ year }: { year: number }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.byYear.map((r) => (
+              {data.byYear.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No prior-year tax charges were found for this reporting year.
+                  </td>
+                </tr>
+              ) : data.byYear.map((r) => (
                 <tr key={r.taxYear} className="hover:bg-gray-50">
                   <td className={tdLeft}>{r.taxYear}</td>
                   <td className={tdRight}>{formatCurrency(r.opening)}</td>
@@ -1051,23 +1057,22 @@ function BarangayShareReport({ year }: { year: number }) {
     <div>
       <ReportHeader title={meta.title} description={meta.description} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
         <StatCard
           label={`Total Barangay Share — CY ${year}`}
           value={formatCurrency(data.totalShare)}
-          icon={<HandCoins className="h-6 w-6" />}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           color="green"
         />
         <StatCard
           label="Number of Barangays"
           value={String(data.byBarangay.length)}
-          icon={<Building2 className="h-6 w-6" />}
           color="blue"
         />
         <StatCard
           label="Average Share per Barangay"
           value={formatCurrency(data.totalShare / data.byBarangay.length)}
-          icon={<Calculator className="h-6 w-6" />}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           color="teal"
         />
       </div>
@@ -1202,23 +1207,23 @@ function SefShareReport({ year }: { year: number }) {
     <div>
       <ReportHeader title={meta.title} description={meta.description} />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
         <StatCard
           label="Province Share (50%)"
           value={formatCurrency(data.provinceShare)}
-          icon={<Building2 className="h-6 w-6" />}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           color="blue"
         />
         <StatCard
           label="Municipality Share (50%)"
           value={formatCurrency(data.municipalityShare)}
-          icon={<Calculator className="h-6 w-6" />}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           color="teal"
         />
         <StatCard
           label={`Total SEF Collection — CY ${year}`}
           value={formatCurrency(data.totalShare)}
-          icon={<HandCoins className="h-6 w-6" />}
+          valueClassName="whitespace-nowrap text-xl leading-tight"
           color="green"
         />
       </div>

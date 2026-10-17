@@ -42,7 +42,7 @@ export function TaxpayerPortal() {
     async function loadData() {
       setLoading(true);
 
-      const [propsRes, chargesRes, paymentsRes] = await Promise.all([
+      const [propsRes, chargesRes] = await Promise.all([
         supabase
           .from('properties')
           .select(`id, pin, tax_declaration_number, arp_number, barangay_id, location_address, status, created_at,
@@ -59,19 +59,23 @@ export function TaxpayerPortal() {
           `)
           .neq('status', 'cancelled')
           .order('due_date', { ascending: true }),
-        supabase
-          .from('payments')
-          .select(`*,
-            receipt:receipts(receipt_number, status),
-            allocations:payment_allocations(
-              allocated_amount,
-              tax_charge:tax_charges(tax_year, quarter, levy_type)
-            )
-          `)
-          .eq('taxpayer_id', (taxpayer as TaxpayerUser).id)
-          .order('payment_date', { ascending: false })
-          .limit(20),
       ]);
+
+      const taxpayerId = (taxpayer as TaxpayerUser).id;
+      const linkedPropertyIds = (propsRes.data ?? []).map((property) => property.id);
+      const paymentSelect = `*,
+        receipt:receipts(receipt_number, status),
+        allocations:payment_allocations(
+          allocated_amount,
+          tax_charge:tax_charges(tax_year, quarter, levy_type)
+        )
+      `;
+      const paymentQuery = supabase.from('payments').select(paymentSelect);
+      const paymentsRes = await (linkedPropertyIds.length > 0
+        ? paymentQuery.or(`taxpayer_id.eq.${taxpayerId},property_id.in.(${linkedPropertyIds.join(',')})`)
+        : paymentQuery.eq('taxpayer_id', taxpayerId))
+        .order('payment_date', { ascending: false })
+        .limit(20);
 
       const queryError = propsRes.error || chargesRes.error || paymentsRes.error;
       if (queryError) {

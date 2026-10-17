@@ -150,3 +150,18 @@ Expanded the shared Print / Export menu with CSV and Excel-compatible `.xls` dow
 ### Report summary card amount wrapping — 17 October 2026
 
 Adjusted the shared `StatCard` layout to prevent overflow while preserving readable amounts. The initial generic wrapping treatment broke currency values across digits and was visually poor; it has been replaced with an Assessment Roll-specific two-column layout at common screen sizes and single-line, slightly smaller currency values. The layout returns to four columns on very wide screens. The shared card supports an optional value style so other cards retain their existing appearance.
+
+
+### Arrears Recovery empty report handling — 17 October 2026
+
+The report selected only charges with a due date before January 1 of the selected year. The repository’s seeded charges are for 2026, so the default 2026 report had no prior-year rows and showed only the generic no-data screen. The query now selects tax years before the reporting year and excludes cancelled and reversed charges. When there are no prior-year charges, the report still displays zero-valued summary cards and explains the empty breakdown. This does not create or imply arrears that are absent from the database.
+
+
+### Revenue-sharing summary card layout — 17 October 2026
+
+Updated the Barangay Share and SEF Share report summary cards to keep currency amounts on one line and provide more horizontal room at common screen sizes. Both reports use two columns at standard desktop widths and expand to three columns on very wide screens. Following visual review, removed icons from every shared `StatCard` summary card across Reports, Dashboard, and Reconciliation so labels and amounts have more room. Other non-summary icons remain unchanged.
+
+
+### Taxpayer Payment History property-link lookup — 17 October 2026
+
+The taxpayer portal requested payment history only where `payments.taxpayer_id` matched the signed-in taxpayer profile. The collection posting function can leave this field unset while linking a single-property payment through `payments.property_id`, so those payments were omitted from the portal. Payment History now queries both the taxpayer profile ID and the IDs of properties already loaded for that taxpayer. Existing Supabase row-level security still controls which payment rows the authenticated user can read.
